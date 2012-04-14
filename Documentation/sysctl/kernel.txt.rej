@@ -1,0 +1,18 @@
+--- Documentation/sysctl/kernel.txt	2012-03-24 19:30:00.012420362 +1100
++++ Documentation/sysctl/kernel.txt	2012-03-24 19:30:29.039925758 +1100
+@@ -33,6 +33,7 @@
+ - domainname
+ - hostname
+ - hotplug
++- iso_cpu
+ - kptr_restrict
+ - kstack_depth_to_print       [ X86 only ]
+ - l2cr                        [ PPC only ]
+@@ -59,6 +60,7 @@
+ - randomize_va_space
+ - real-root-dev               ==> Documentation/initrd.txt
+ - reboot-cmd                  [ SPARC only ]
++- rr_interval
+ - rtsig-max
+ - rtsig-nr
+ - sem

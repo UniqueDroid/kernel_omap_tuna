@@ -1,0 +1,10 @@
+--- init/Kconfig	2012-03-24 19:30:29.040925775 +1100
++++ init/Kconfig	2012-03-24 19:30:00.013420381 +1100
+@@ -727,7 +713,6 @@
+ 
+ menuconfig CGROUP_SCHED
+ 	bool "Group CPU scheduler"
+-	depends on !SCHED_BFS
+ 	default n
+ 	help
+ 	  This feature lets CPU scheduler recognize task groups and control CPU

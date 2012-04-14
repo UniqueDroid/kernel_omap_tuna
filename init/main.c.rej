@@ -1,0 +1,10 @@
+--- init/main.c	2012-03-24 19:30:00.013420381 +1100
++++ init/main.c	2012-03-24 19:30:29.041925792 +1100
+@@ -757,6 +757,7 @@
+ 	system_state = SYSTEM_RUNNING;
+ 	numa_default_policy();
+ 
++	print_scheduler_version();
+ 
+ 	current->signal->flags |= SIGNAL_UNKILLABLE;
+ 

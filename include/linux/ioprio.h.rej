@@ -1,0 +1,11 @@
+--- include/linux/ioprio.h	2012-03-24 19:30:00.013420381 +1100
++++ include/linux/ioprio.h	2012-03-24 19:30:29.039925758 +1100
+@@ -64,6 +64,8 @@
+ 
+ static inline int task_nice_ioprio(struct task_struct *task)
+ {
++	if (iso_task(task))
++		return 0;
+ 	return (task_nice(task) + 20) / 5;
+ }
+ 

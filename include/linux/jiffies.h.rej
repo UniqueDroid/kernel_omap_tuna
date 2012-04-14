@@ -1,0 +1,11 @@
+--- include/linux/jiffies.h	2012-03-24 19:30:00.012420362 +1100
++++ include/linux/jiffies.h	2012-03-24 19:30:29.043925827 +1100
+@@ -164,7 +164,7 @@
+  * Have the 32 bit jiffies value wrap 5 minutes after boot
+  * so jiffies wrap bugs show up earlier.
+  */
+-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
++#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-10*HZ))
+ 
+ /*
+  * Change timeval to jiffies, trying to avoid the
