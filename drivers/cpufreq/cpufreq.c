@@ -558,7 +558,7 @@ static ssize_t show_boost_cpufreq(struct cpufreq_policy *policy, char *buf)
 	if (!policy->governor || !policy->governor->boost_cpu_freq)
 		return sprintf(buf, "<unsupported>\n");
 
-	return sprintf(buf, "%d\n", 0);
+	return sprintf(buf, "%d\n", 1);
 }
 
 static ssize_t store_boost_cpufreq(struct cpufreq_policy *policy,
