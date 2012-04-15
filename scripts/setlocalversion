@@ -77,7 +77,7 @@ scm_version()
 		# Check for uncommitted changes
 		if git diff-index --name-only HEAD | grep -v "^scripts/package" \
 		    | read dummy; then
-			printf '%s' -dirty
+			printf '%s' -vanilla
 		fi
 
 		# All done with git
@@ -101,7 +101,7 @@ scm_version()
 		# Are there uncommitted changes?
 		# These are represented by + after the changeset id.
 		case "$hgid" in
-			*+|*+\ *) printf '%s' -dirty ;;
+			*+|*+\ *) printf '%s' -vanilla ;;
 		esac
 
 		# All done with mercurial
@@ -170,7 +170,8 @@ else
 	# LOCALVERSION= is not specified
 	if test "${LOCALVERSION+set}" != "set"; then
 		scm=$(scm_version --short)
-		res="$res${scm:++}"
+		# no '+' after the LOCALVERSION
+		#res="$res${scm:++}"
 	fi
 fi
 
