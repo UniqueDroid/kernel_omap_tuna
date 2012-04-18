@@ -1,0 +1,15 @@
+--- kernel/sched.c	2011-09-24 13:23:32.813284829 +1000
++++ kernel/sched.c	2011-09-24 13:29:06.502284777 +1000
+@@ -1,3 +1,6 @@
++#ifdef CONFIG_SCHED_BFS
++#include "sched_bfs.c"
++#else
+ /*
+  *  kernel/sched.c
+  *
+@@ -9333,4 +9336,4 @@
+ 	.subsys_id = cpuacct_subsys_id,
+ };
+ #endif	/* CONFIG_CGROUP_CPUACCT */
+-
++#endif /* CONFIG_SCHED_BFS */

@@ -1,0 +1,77 @@
+--- 3.0-sched-bfs-413.patch	2011-11-02 14:03:07.890512883 -0430
++++ 3.1-sched-bfs-413.patch	2011-11-02 14:01:03.571515736 -0430
+@@ -403,9 +403,9 @@
+  - hostname
+  - hotplug
+ +- iso_cpu
+- - java-appletviewer           [ binfmt_java, obsolete ]
+- - java-interpreter            [ binfmt_java, obsolete ]
+  - kptr_restrict
++ - kstack_depth_to_print       [ X86 only ]
++ - l2cr                        [ PPC only ]
+ @@ -55,6 +56,7 @@ show up in /proc/sys/kernel:
+  - randomize_va_space
+  - real-root-dev               ==> Documentation/initrd.txt
+@@ -469,7 +469,7 @@
+ ===================================================================
+ --- linux-3.0.0-bfs.orig/include/linux/init_task.h	2011-09-24 13:23:32.758284829 +1000
+ +++ linux-3.0.0-bfs/include/linux/init_task.h	2011-10-17 14:10:51.684150117 +1100
+-@@ -130,6 +130,66 @@ extern struct cred init_cred;
++@@ -130,6 +130,65 @@ extern struct cred init_cred;
+   *  INIT_TASK is used to set up the first task table, touch at
+   * your own risk!. Base=0, limit=0x1fffff (=2MB)
+   */
+@@ -515,7 +515,6 @@
+ +	.alloc_lock	= __SPIN_LOCK_UNLOCKED(tsk.alloc_lock),		\
+ +	.journal_info	= NULL,						\
+ +	.cpu_timers	= INIT_CPU_TIMERS(tsk.cpu_timers),		\
+-+	.fs_excl	= ATOMIC_INIT(0),				\
+ +	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(tsk.pi_lock),		\
+ +	.timer_slack_ns = 50000, /* 50 usec default slack */		\
+ +	.pids = {							\
+@@ -851,12 +850,16 @@
+ ===================================================================
+ --- linux-3.0.0-bfs.orig/kernel/posix-cpu-timers.c	2011-09-24 13:23:32.801284829 +1000
+ +++ linux-3.0.0-bfs/kernel/posix-cpu-timers.c	2011-09-24 13:29:06.497284777 +1000
+-@@ -250,7 +250,7 @@ void thread_group_cputime(struct task_st
++@@ -250,7 +250,11 @@ void thread_group_cputime(struct task_st
+  	do {
+  		times->utime = cputime_add(times->utime, t->utime);
+  		times->stime = cputime_add(times->stime, t->stime);
+--		times->sum_exec_runtime += t->se.sum_exec_runtime;
++-		times->sum_exec_runtime += task_sched_runtime(t);
+++#ifdef CONFIG_SCHED_BFS
+ +		times->sum_exec_runtime += tsk_seruntime(t);
+++#else
+++		times->sum_exec_runtime += task_sched_runtime(t);
+++#endif
+  	} while_each_thread(tsk, t);
+  out:
+  	rcu_read_unlock();
+@@ -1932,7 +1935,7 @@
+ +#endif
+ +	trace_sched_migrate_task(p, cpu);
+ +	if (task_cpu(p) != cpu)
+-+		perf_sw_event(PERF_COUNT_SW_CPU_MIGRATIONS, 1, 1, NULL, 0);
+++		perf_sw_event(PERF_COUNT_SW_CPU_MIGRATIONS, 1, NULL, 0);
+ +
+ +	/*
+ +	 * After ->cpu is set up to a new value, task_grq_lock(p, ...) can be
+@@ -2794,7 +2797,7 @@
+ +#ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
+ +	local_irq_disable();
+ +#endif /* __ARCH_WANT_INTERRUPTS_ON_CTXSW */
+-+	perf_event_task_sched_in(current);
+++	perf_event_task_sched_in(prev, current);
+ +#ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
+ +	local_irq_enable();
+ +#endif /* __ARCH_WANT_INTERRUPTS_ON_CTXSW */
+@@ -7818,7 +7821,7 @@
+ +#endif
+ +
+ +#ifdef CONFIG_RT_MUTEXES
+-+	plist_head_init_raw(&init_task.pi_waiters, &init_task.pi_lock);
+++	plist_head_init(&init_task.pi_waiters);
+ +#endif
+ +
+ +	/*
