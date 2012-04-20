@@ -1,8 +1,8 @@
 VERSION = 3
-PATCHLEVEL = 0
-SUBLEVEL = 8
+PATCHLEVEL = 3
+SUBLEVEL = 2
 EXTRAVERSION =
-NAME = Sneaky Weasel
+NAME = Saber-toothed Squirrel
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
