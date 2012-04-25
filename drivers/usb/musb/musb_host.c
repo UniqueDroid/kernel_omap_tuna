@@ -2266,8 +2266,6 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 	struct musb	*musb = hcd_to_musb(hcd);
 	u8		devctl;
 
-	wake_unlock(&musb->musb_wakelock);
-
 	if (!is_host_active(musb))
 		return 0;
 
@@ -2297,9 +2295,6 @@ static int musb_bus_suspend(struct usb_hcd *hcd)
 
 static int musb_bus_resume(struct usb_hcd *hcd)
 {
-	struct musb     *musb = hcd_to_musb(hcd);
-
-	wake_lock(&musb->musb_wakelock);
 	/* resuming child port does the work */
 	return 0;
 }

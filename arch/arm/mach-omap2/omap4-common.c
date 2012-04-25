@@ -274,7 +274,6 @@ static int __init omap_barriers_init(void)
 }
 core_initcall(omap_barriers_init);
 
-#ifndef CONFIG_SECURITY_MIDDLEWARE_COMPONENT
 /*
  * omap4_sec_dispatcher: Routine to dispatch low power secure
  * service routines
@@ -325,4 +324,3 @@ u32 omap4_secure_dispatcher(u32 idx, u32 flag, u32 nargs, u32 arg1, u32 arg2,
 
 	return ret;
 }
-#endif

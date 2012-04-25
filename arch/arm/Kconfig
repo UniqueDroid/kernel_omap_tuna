@@ -12,9 +12,9 @@ config ARM
 	select HAVE_ARCH_KGDB
 	select HAVE_KPROBES if (!XIP_KERNEL && !THUMB2_KERNEL)
 	select HAVE_KRETPROBES if (HAVE_KPROBES)
-	#select HAVE_FUNCTION_TRACER if (!XIP_KERNEL)
+	select HAVE_FUNCTION_TRACER if (!XIP_KERNEL)
 	select HAVE_FTRACE_MCOUNT_RECORD if (!XIP_KERNEL)
-	#select HAVE_DYNAMIC_FTRACE if (!XIP_KERNEL)
+	select HAVE_DYNAMIC_FTRACE if (!XIP_KERNEL)
 	select HAVE_FUNCTION_GRAPH_TRACER if (!THUMB2_KERNEL)
 	select HAVE_GENERIC_DMA_COHERENT
 	select HAVE_KERNEL_GZIP
@@ -107,7 +107,7 @@ config MCA
 
 config STACKTRACE_SUPPORT
 	bool
-	default n
+	default y
 
 config HAVE_LATENCYTOP_SUPPORT
 	bool
@@ -137,9 +137,10 @@ config GENERIC_LOCKBREAK
 
 config RWSEM_GENERIC_SPINLOCK
 	bool
+	default y
 
 config RWSEM_XCHGADD_ALGORITHM
-	def_bool y
+	bool
 
 config ARCH_HAS_ILOG2_U32
 	bool
@@ -1179,7 +1180,7 @@ config ARM_ERRATA_743622
 	depends on CPU_V7
 	help
 	  This option enables the workaround for the 743622 Cortex-A9
-	  (r2p0..r2p2) erratum. Under very rare conditions, a faulty
+	  (r2p*) erratum. Under very rare conditions, a faulty
 	  optimisation in the Cortex-A9 Store Buffer may lead to data
 	  corruption. This workaround sets a specific bit in the diagnostic
 	  register of the Cortex-A9 which disables the Store Buffer
@@ -1311,6 +1312,18 @@ config ARM_ERRATA_764369
 	  system. This workaround adds a DSB instruction before the
 	  relevant cache maintenance functions and sets a specific bit
 	  in the diagnostic control register of the SCU.
+
+config PL310_ERRATA_769419
+	bool "PL310 errata: no automatic Store Buffer drain"
+	depends on CACHE_L2X0
+	help
+	  On revisions of the PL310 prior to r3p2, the Store Buffer does
+	  not automatically drain. This can cause normal, non-cacheable
+	  writes to be retained when the memory system is idle, leading
+	  to suboptimal I/O performance for drivers using coherent DMA.
+	  This option adds a write barrier to the cpu_idle loop so that,
+	  on systems with an outer cache, the store buffer is drained
+	  explicitly.
 
 endmenu
 
@@ -1635,15 +1648,6 @@ config ALIGNMENT_TRAP
 	  here, which has a severe performance impact. This is necessary for
 	  correct operation of some network protocols. With an IP-only
 	  configuration it is safe to say N, otherwise say Y.
-
-config ALLOW_CPU_ALIGNMENT
-       bool "Allow CPU-based alignment handling"
-       help
-         Advanced ARM processors, such as the Cortex series and ARMv7-based
-         CPUS are capable of performing unaligned accesses for many types of
-         memory accesses.  Typically, using a cpu-based alignment fixup is
-         faster than doing such a fixup in software.  For best performance
-         on advanced CPUs, say Y here.
 
 config UACCESS_WITH_MEMCPY
 	bool "Use kernel mem{cpy,set}() for {copy_to,clear}_user() (EXPERIMENTAL)"

@@ -190,9 +190,6 @@ void ext4_evict_inode(struct inode *inode)
 
 	trace_ext4_evict_inode(inode);
 
-	mutex_lock(&inode->i_mutex);
-	ext4_flush_completed_IO(inode);
-	mutex_unlock(&inode->i_mutex);
 	ext4_ioend_wait(inode);
 
 	if (inode->i_nlink) {
@@ -2129,8 +2126,11 @@ static int mpage_da_submit_io(struct mpage_da_data *mpd,
 					clear_buffer_unwritten(bh);
 				}
 
-				/* skip page if block allocation undone */
-				if (buffer_delay(bh) || buffer_unwritten(bh))
+				/*
+				 * skip page if block allocation undone and
+				 * block is dirty
+				 */
+				if (ext4_bh_delay_or_unwritten(NULL, bh))
 					skip_page = 1;
 				bh = bh->b_this_page;
 				block_start += bh->b_size;
@@ -2678,12 +2678,8 @@ static int ext4_writepage(struct page *page,
 		 * We don't want to do block allocation, so redirty
 		 * the page and return.  We may reach here when we do
 		 * a journal commit via journal_submit_inode_data_buffers.
-		 * We can also reach here via shrink_page_list but it
-		 * should never be for direct reclaim so warn if that
-		 * happens
+		 * We can also reach here via shrink_page_list
 		 */
-		WARN_ON_ONCE((current->flags & (PF_MEMALLOC|PF_KSWAPD)) ==
-								PF_MEMALLOC);
 		goto redirty_page;
 	}
 	if (commit_write)
@@ -3112,7 +3108,7 @@ static int ext4_nonda_switch(struct super_block *sb)
 	 * start pushing delalloc when 1/2 of free blocks are dirty.
 	 */
 	if (free_blocks < 2 * dirty_blocks)
-		writeback_inodes_sb_if_idle(sb, WB_REASON_FS_FREE_SPACE);
+		writeback_inodes_sb_if_idle(sb);
 
 	return 0;
 }
@@ -3216,13 +3212,14 @@ static int ext4_da_write_end(struct file *file,
 	int write_mode = (int)(unsigned long)fsdata;
 
 	if (write_mode == FALL_BACK_TO_NONDELALLOC) {
-		if (ext4_should_order_data(inode)) {
+		switch (ext4_inode_journal_mode(inode)) {
+		case EXT4_INODE_ORDERED_DATA_MODE:
 			return ext4_ordered_write_end(file, mapping, pos,
 					len, copied, page, fsdata);
-		} else if (ext4_should_writeback_data(inode)) {
+		case EXT4_INODE_WRITEBACK_DATA_MODE:
 			return ext4_writeback_write_end(file, mapping, pos,
 					len, copied, page, fsdata);
-		} else {
+		default:
 			BUG();
 		}
 	}
@@ -3238,7 +3235,7 @@ static int ext4_da_write_end(struct file *file,
 	 */
 
 	new_i_size = pos + copied;
-	if (new_i_size > EXT4_I(inode)->i_disksize) {
+	if (copied && new_i_size > EXT4_I(inode)->i_disksize) {
 		if (ext4_da_should_update_i_disksize(page, end)) {
 			down_write(&EXT4_I(inode)->i_data_sem);
 			if (new_i_size > EXT4_I(inode)->i_disksize) {
@@ -3922,18 +3919,25 @@ static const struct address_space_operations ext4_da_aops = {
 
 void ext4_set_aops(struct inode *inode)
 {
-	if (ext4_should_order_data(inode) &&
-		test_opt(inode->i_sb, DELALLOC))
-		inode->i_mapping->a_ops = &ext4_da_aops;
-	else if (ext4_should_order_data(inode))
-		inode->i_mapping->a_ops = &ext4_ordered_aops;
-	else if (ext4_should_writeback_data(inode) &&
-		 test_opt(inode->i_sb, DELALLOC))
-		inode->i_mapping->a_ops = &ext4_da_aops;
-	else if (ext4_should_writeback_data(inode))
-		inode->i_mapping->a_ops = &ext4_writeback_aops;
-	else
+	switch (ext4_inode_journal_mode(inode)) {
+	case EXT4_INODE_ORDERED_DATA_MODE:
+		if (test_opt(inode->i_sb, DELALLOC))
+			inode->i_mapping->a_ops = &ext4_da_aops;
+		else
+			inode->i_mapping->a_ops = &ext4_ordered_aops;
+		break;
+	case EXT4_INODE_WRITEBACK_DATA_MODE:
+		if (test_opt(inode->i_sb, DELALLOC))
+			inode->i_mapping->a_ops = &ext4_da_aops;
+		else
+			inode->i_mapping->a_ops = &ext4_writeback_aops;
+		break;
+	case EXT4_INODE_JOURNAL_DATA_MODE:
 		inode->i_mapping->a_ops = &ext4_journalled_aops;
+		break;
+	default:
+		BUG();
+	}
 }
 
 /*

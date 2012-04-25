@@ -27,7 +27,6 @@
 #include <linux/io.h>
 #include <linux/opp.h>
 #include <linux/cpu.h>
-#include <linux/earlysuspend.h>
 #include <linux/platform_device.h>
 
 #include <asm/system.h>
@@ -60,18 +59,10 @@ static struct device *mpu_dev;
 static DEFINE_MUTEX(omap_cpufreq_lock);
 
 static unsigned int max_thermal;
-static unsigned int max_capped;
 static unsigned int max_freq;
 static unsigned int current_target_freq;
-static unsigned int screen_off_max_freq;
 static bool omap_cpufreq_ready;
 static bool omap_cpufreq_suspended;
-
-#ifdef CONFIG_CUSTOM_VOLTAGE
-extern void customvoltage_register_freqtable(struct cpufreq_frequency_table * freq_table);
-extern void customvoltage_register_freqmutex(struct mutex * freq_mutex);
-extern void customvoltage_init(void);
-#endif
 
 static unsigned int omap_getspeed(unsigned int cpu)
 {
@@ -99,9 +90,6 @@ static int omap_cpufreq_scale(unsigned int target_freq, unsigned int cur_freq)
 	 */
 	if (freqs.new > max_thermal)
 		freqs.new = max_thermal;
-
-	if (max_capped && freqs.new > max_capped)
-		freqs.new = max_capped;
 
 	if ((freqs.old == freqs.new) && (cur_freq = freqs.new))
 		return 0;
@@ -268,46 +256,6 @@ static int omap_target(struct cpufreq_policy *policy,
 	return ret;
 }
 
-static void omap_cpu_early_suspend(struct early_suspend *h)
-{
-	unsigned int cur;
-
-	mutex_lock(&omap_cpufreq_lock);
-
-	if (screen_off_max_freq) {
-		max_capped = screen_off_max_freq;
-
-		cur = omap_getspeed(0);
-		if (cur > max_capped)
-			omap_cpufreq_scale(max_capped, cur);
-	}
-
-	mutex_unlock(&omap_cpufreq_lock);
-}
-
-static void omap_cpu_late_resume(struct early_suspend *h)
-{
-	unsigned int cur;
-
-	mutex_lock(&omap_cpufreq_lock);
-
-	if (max_capped) {
-		max_capped = 0;
-
-		cur = omap_getspeed(0);
-		if (cur != current_target_freq)
-			omap_cpufreq_scale(current_target_freq, cur);
-	}
-
-	mutex_unlock(&omap_cpufreq_lock);
-}
-
-static struct early_suspend omap_cpu_early_suspend_handler = {
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
-	.suspend = omap_cpu_early_suspend,
-	.resume = omap_cpu_late_resume,
-};
-
 static inline void freq_table_free(void)
 {
 	if (atomic_dec_and_test(&freq_table_users))
@@ -368,11 +316,6 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
 
-#ifdef CONFIG_CUSTOM_VOLTAGE
-	customvoltage_register_freqtable(freq_table);
-	customvoltage_register_freqmutex(&omap_cpufreq_lock);
-	customvoltage_init();
-#endif
 	return 0;
 
 fail_table:
@@ -389,78 +332,8 @@ static int omap_cpu_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static ssize_t show_screen_off_freq(struct cpufreq_policy *policy, char *buf)
-{
-	return sprintf(buf, "%u\n", screen_off_max_freq);
-}
-
-static ssize_t store_screen_off_freq(struct cpufreq_policy *policy,
-	const char *buf, size_t count)
-{
-	unsigned int freq = 0;
-	int ret;
-	int index;
-
-	if (!freq_table)
-		return -EINVAL;
-
-	ret = sscanf(buf, "%u", &freq);
-	if (ret != 1)
-		return -EINVAL;
-
-	mutex_lock(&omap_cpufreq_lock);
-
-	ret = cpufreq_frequency_table_target(policy, freq_table, freq,
-		CPUFREQ_RELATION_H, &index);
-	if (ret)
-		goto out;
-
-	screen_off_max_freq = freq_table[index].frequency;
-
-	ret = count;
-
-out:
-	mutex_unlock(&omap_cpufreq_lock);
-	return ret;
-}
-
-struct freq_attr omap_cpufreq_attr_screen_off_freq = {
-	.attr = { .name = "screen_off_max_freq",
-		  .mode = 0644,
-		},
-	.show = show_screen_off_freq,
-	.store = store_screen_off_freq,
-};
-
-#ifdef CONFIG_CUSTOM_VOLTAGE
-extern ssize_t customvoltage_voltages_read(struct device * dev, struct device_attribute * attr, char * buf);
-extern ssize_t customvoltage_voltages_write(struct device * dev, struct device_attribute * attr, const char * buf, size_t size);
-
-static ssize_t show_UV_mV_table(struct cpufreq_policy * policy, char * buf)
-{
-    return customvoltage_voltages_read(NULL, NULL, buf);
-}
-
-static ssize_t store_UV_mV_table(struct cpufreq_policy * policy, const char * buf, size_t count)
-{
-    return customvoltage_voltages_write(NULL, NULL, buf, count);
-}
-
-static struct freq_attr omap_UV_mV_table = {
-    .attr = {.name = "UV_mV_table",
-	     .mode=0644,
-    },
-    .show = show_UV_mV_table,
-    .store = store_UV_mV_table,
-};
-#endif
-
 static struct freq_attr *omap_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
-	&omap_cpufreq_attr_screen_off_freq,
-#ifdef CONFIG_CUSTOM_VOLTAGE
-	&omap_UV_mV_table,
-#endif
 	NULL,
 };
 
@@ -534,8 +407,6 @@ static int __init omap_cpufreq_init(void)
 		return -EINVAL;
 	}
 
-	register_early_suspend(&omap_cpu_early_suspend_handler);
-
 	ret = cpufreq_register_driver(&omap_driver);
 	omap_cpufreq_ready = !ret;
 
@@ -558,8 +429,6 @@ static int __init omap_cpufreq_init(void)
 static void __exit omap_cpufreq_exit(void)
 {
 	cpufreq_unregister_driver(&omap_driver);
-
-	unregister_early_suspend(&omap_cpu_early_suspend_handler);
 	platform_driver_unregister(&omap_cpufreq_platform_driver);
 	platform_device_unregister(&omap_cpufreq_device);
 }

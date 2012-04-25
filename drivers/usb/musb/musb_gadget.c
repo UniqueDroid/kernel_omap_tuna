@@ -576,6 +576,15 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 
 		if (request->actual == request->length) {
 			musb_g_giveback(musb_ep, request, 0);
+			/*
+			 * In the giveback function the MUSB lock is
+			 * released and acquired after sometime. During
+			 * this time period the INDEX register could get
+			 * changed by the gadget_queue function especially
+			 * on SMP systems. Reselect the INDEX to be sure
+			 * we are reading/modifying the right registers
+			 */
+			musb_ep_select(mbase, epnum);
 			req = musb_ep->desc ? next_request(musb_ep) : NULL;
 			if (!req) {
 				dev_dbg(musb->controller, "%s idle now\n",
@@ -634,7 +643,6 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	u16			len;
 	u16			csr = musb_readw(epio, MUSB_RXCSR);
 	struct musb_hw_ep	*hw_ep = &musb->endpoints[epnum];
-	u8			use_mode_1;
 
 	if (hw_ep->is_shared_fifo)
 		musb_ep = &hw_ep->ep_in;
@@ -684,10 +692,6 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 	if (csr & MUSB_RXCSR_RXPKTRDY) {
 		len = musb_readw(epio, MUSB_RXCOUNT);
-
-		 /* Disable mode1 rx dma */
-		use_mode_1 = 0;
-
 		if (request->actual < request->length) {
 #ifdef CONFIG_USB_INVENTRA_DMA
 			if (is_buffer_mapped(req)) {
@@ -719,40 +723,37 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 	 * then becomes usable as a runtime "use mode 1" hint...
 	 */
 
-	/* Experimental: Mode1 works with mass storage use cases
-	 */
-		if (use_mode_1) {
-				csr |= MUSB_RXCSR_AUTOCLEAR;
-				musb_writew(epio, MUSB_RXCSR, csr);
 				csr |= MUSB_RXCSR_DMAENAB;
-				musb_writew(epio, MUSB_RXCSR, csr);
+#ifdef USE_MODE1
+				csr |= MUSB_RXCSR_AUTOCLEAR;
+				/* csr |= MUSB_RXCSR_DMAMODE; */
 
-				/* this special sequence is required
+				/* this special sequence (enabling and then
+				 * disabling MUSB_RXCSR_DMAMODE) is required
 				 * to get DMAReq to activate
 				 */
-				csr |= MUSB_RXCSR_DMAMODE;
-				musb_writew(epio, MUSB_RXCSR, csr);
-				csr |= MUSB_RXCSR_DMAENAB;
-				musb_writew(epio, MUSB_RXCSR, csr);
-		} else {
+				musb_writew(epio, MUSB_RXCSR,
+					csr | MUSB_RXCSR_DMAMODE);
+#else
 				if (!musb_ep->hb_mult &&
 					musb_ep->hw_ep->rx_double_buffered)
 					csr |= MUSB_RXCSR_AUTOCLEAR;
-				csr |= MUSB_RXCSR_DMAENAB;
+#endif
 				musb_writew(epio, MUSB_RXCSR, csr);
-		}
 
 				if (request->actual < request->length) {
 					int transfer_size = 0;
-		if (use_mode_1) {
+#ifdef USE_MODE1
 					transfer_size = min(request->length - request->actual,
 							channel->max_len);
-					musb_ep->dma->desired_mode = 1;
-		} else {
+#else
 					transfer_size = min(request->length - request->actual,
 							(unsigned)len);
-					musb_ep->dma->desired_mode = 0;
-		}
+#endif
+					if (transfer_size <= musb_ep->packet_sz)
+						musb_ep->dma->desired_mode = 0;
+					else
+						musb_ep->dma->desired_mode = 1;
 
 					use_dma = c->channel_program(
 							channel,
@@ -976,6 +977,15 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		}
 #endif
 		musb_g_giveback(musb_ep, request, 0);
+		/*
+		 * In the giveback function the MUSB lock is
+		 * released and acquired after sometime. During
+		 * this time period the INDEX register could get
+		 * changed by the gadget_queue function especially
+		 * on SMP systems. Reselect the INDEX to be sure
+		 * we are reading/modifying the right registers
+		 */
+		musb_ep_select(mbase, epnum);
 
 		req = next_request(musb_ep);
 		if (!req)
@@ -1927,9 +1937,20 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	spin_lock_irqsave(&musb->lock, flags);
 
 	otg_set_peripheral(musb->xceiv, &musb->g);
+	musb->xceiv->state = OTG_STATE_B_IDLE;
+	musb->is_active = 1;
+
+	/*
+	 * FIXME this ignores the softconnect flag.  Drivers are
+	 * allowed hold the peripheral inactive until for example
+	 * userspace hooks up printer hardware or DSP codecs, so
+	 * hosts only see fully functional devices.
+	 */
 
 	if (!is_otg_enabled(musb))
 		musb_start(musb);
+
+	otg_set_peripheral(musb->xceiv, &musb->g);
 
 	spin_unlock_irqrestore(&musb->lock, flags);
 
@@ -1948,9 +1969,12 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 			goto err2;
 		}
 
+		if ((musb->xceiv->last_event == USB_EVENT_ID)
+					&& musb->xceiv->set_vbus)
+			otg_set_vbus(musb->xceiv, 1);
+
 		hcd->self.uses_pio_for_control = 1;
 	}
-
 	if (musb->xceiv->last_event == USB_EVENT_NONE)
 		pm_runtime_put(musb->controller);
 

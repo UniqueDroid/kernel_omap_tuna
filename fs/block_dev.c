@@ -44,28 +44,24 @@ inline struct block_device *I_BDEV(struct inode *inode)
 {
 	return &BDEV_I(inode)->bdev;
 }
+
 EXPORT_SYMBOL(I_BDEV);
 
 /*
- * Move the inode from its current bdi to a new bdi. If the inode is dirty we
- * need to move it onto the dirty list of @dst so that the inode is always on
- * the right list.
+ * move the inode from it's current bdi to the a new bdi. if the inode is dirty
+ * we need to move it onto the dirty list of @dst so that the inode is always
+ * on the right list.
  */
 static void bdev_inode_switch_bdi(struct inode *inode,
 			struct backing_dev_info *dst)
 {
-	struct backing_dev_info *old = inode->i_data.backing_dev_info;
-
-	if (unlikely(dst == old))		/* deadlock avoidance */
-		return;
-	bdi_lock_two(&old->wb, &dst->wb);
+	spin_lock(&inode_wb_list_lock);
 	spin_lock(&inode->i_lock);
 	inode->i_data.backing_dev_info = dst;
 	if (inode->i_state & I_DIRTY)
 		list_move(&inode->i_wb_list, &dst->wb.b_dirty);
 	spin_unlock(&inode->i_lock);
-	spin_unlock(&old->wb.list_lock);
-	spin_unlock(&dst->wb.list_lock);
+	spin_unlock(&inode_wb_list_lock);
 }
 
 static sector_t max_block(struct block_device *bdev)
@@ -1079,6 +1075,7 @@ static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part);
 static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 {
 	struct gendisk *disk;
+	struct module *owner;
 	int ret;
 	int partno;
 	int perm = 0;
@@ -1104,6 +1101,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	disk = get_gendisk(bdev->bd_dev, &partno);
 	if (!disk)
 		goto out;
+	owner = disk->fops->owner;
 
 	disk_block_events(disk);
 	mutex_lock_nested(&bdev->bd_mutex, for_part);
@@ -1131,8 +1129,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 					bdev->bd_disk = NULL;
 					mutex_unlock(&bdev->bd_mutex);
 					disk_unblock_events(disk);
-					module_put(disk->fops->owner);
 					put_disk(disk);
+					module_put(owner);
 					goto restart;
 				}
 			}
@@ -1151,8 +1149,12 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			 * The latter is necessary to prevent ghost
 			 * partitions on a removed medium.
 			 */
-			if (bdev->bd_invalidated && (!ret || ret == -ENOMEDIUM))
-				rescan_partitions(disk, bdev);
+			if (bdev->bd_invalidated) {
+				if (!ret)
+					rescan_partitions(disk, bdev);
+				else if (ret == -ENOMEDIUM)
+					invalidate_partitions(disk, bdev);
+			}
 			if (ret)
 				goto out_clear;
 		} else {
@@ -1182,14 +1184,18 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			if (bdev->bd_disk->fops->open)
 				ret = bdev->bd_disk->fops->open(bdev, mode);
 			/* the same as first opener case, read comment there */
-			if (bdev->bd_invalidated && (!ret || ret == -ENOMEDIUM))
-				rescan_partitions(bdev->bd_disk, bdev);
+			if (bdev->bd_invalidated) {
+				if (!ret)
+					rescan_partitions(bdev->bd_disk, bdev);
+				else if (ret == -ENOMEDIUM)
+					invalidate_partitions(bdev->bd_disk, bdev);
+			}
 			if (ret)
 				goto out_unlock_bdev;
 		}
 		/* only one opener holds refs to the module and disk */
-		module_put(disk->fops->owner);
 		put_disk(disk);
+		module_put(owner);
 	}
 	bdev->bd_openers++;
 	if (for_part)
@@ -1209,8 +1215,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
  out_unlock_bdev:
 	mutex_unlock(&bdev->bd_mutex);
 	disk_unblock_events(disk);
-	module_put(disk->fops->owner);
 	put_disk(disk);
+	module_put(owner);
  out:
 	bdput(bdev);
 
@@ -1423,6 +1429,11 @@ static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
 		WARN_ON_ONCE(bdev->bd_holders);
 		sync_blockdev(bdev);
 		kill_bdev(bdev);
+		/* ->release can cause the old bdi to disappear,
+		 * so must switch it out first
+		 */
+		bdev_inode_switch_bdi(bdev->bd_inode,
+					&default_backing_dev_info);
 	}
 	if (bdev->bd_contains == bdev) {
 		if (disk->fops->release)
@@ -1431,16 +1442,15 @@ static int __blkdev_put(struct block_device *bdev, fmode_t mode, int for_part)
 	if (!bdev->bd_openers) {
 		struct module *owner = disk->fops->owner;
 
-		put_disk(disk);
-		module_put(owner);
 		disk_put_part(bdev->bd_part);
 		bdev->bd_part = NULL;
 		bdev->bd_disk = NULL;
-		bdev_inode_switch_bdi(bdev->bd_inode,
-					&default_backing_dev_info);
 		if (bdev != bdev->bd_contains)
 			victim = bdev->bd_contains;
 		bdev->bd_contains = NULL;
+
+		put_disk(disk);
+		module_put(owner);
 	}
 	mutex_unlock(&bdev->bd_mutex);
 	bdput(bdev);

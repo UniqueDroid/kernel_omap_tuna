@@ -75,7 +75,9 @@ static struct omap_device_pad port1_phy_pads[] __initdata = {
 	},
 	{
 		.name = "usbb1_ulpitll_dir.usbb1_ulpiphy_dir",
-		.enable = OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4,
+		.flags  = OMAP_DEVICE_PAD_REMUX | OMAP_DEVICE_PAD_WAKEUP,
+		.enable = (OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4) & ~OMAP_WAKEUP_EN,
+		.idle = OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4,
 	},
 	{
 		.name = "usbb1_ulpitll_nxt.usbb1_ulpiphy_nxt",
@@ -83,7 +85,9 @@ static struct omap_device_pad port1_phy_pads[] __initdata = {
 	},
 	{
 		.name = "usbb1_ulpitll_dat0.usbb1_ulpiphy_dat0",
-		.enable = OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4,
+		.flags  = OMAP_DEVICE_PAD_REMUX | OMAP_DEVICE_PAD_WAKEUP,
+		.enable = (OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4) & ~OMAP_WAKEUP_EN,
+		.idle = OMAP_PIN_INPUT_PULLDOWN | OMAP_MUX_MODE4,
 	},
 	{
 		.name = "usbb1_ulpitll_dat1.usbb1_ulpiphy_dat1",

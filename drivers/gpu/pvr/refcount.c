@@ -1,7 +1,27 @@
-/*************************************************************************/ /*!
-@Title          Services reference count debugging
-@Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@License        Strictly Confidential.
+/**********************************************************************
+ *
+ * Copyright (C) Imagination Technologies Ltd. All rights reserved.
+ * 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ * 
+ * This program is distributed in the hope it will be useful but, except 
+ * as otherwise stated in writing, without any warranty; without even the 
+ * implied warranty of merchantability or fitness for a particular purpose. 
+ * See the GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with
+ * this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin St - Fifth Floor, Boston, MA 02110-1301 USA.
+ * 
+ * The full GNU General Public License is included in this distribution in
+ * the file called "COPYING".
+ *
+ * Contact Information:
+ * Imagination Technologies Ltd. <gpl-support@imgtec.com>
+ * Home Park Estate, Kings Langley, Herts, WD4 8LZ, UK 
+ *
 */ /**************************************************************************/
 
 #if defined(PVRSRV_REFCOUNT_DEBUG)
@@ -95,6 +115,8 @@ void PVRSRVKernelSyncInfoIncRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 								 PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo,
 								 PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo)
 {
+	IMG_UINT32 ui32RefValue = OSAtomicRead(psKernelSyncInfo->pvRefCount);
+
 	if(!(guiDebugMask & PVRSRV_REFCOUNT_CCB_DEBUG_SYNCINFO))
 		goto skip;
 
@@ -111,8 +133,8 @@ void PVRSRVKernelSyncInfoIncRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 			 psKernelMemInfo,
 			 NULL,
 			 (psKernelMemInfo) ? psKernelMemInfo->sMemBlk.hOSMemHandle : NULL,
-			 psKernelSyncInfo->ui32RefCount,
-			 psKernelSyncInfo->ui32RefCount + 1,
+			 ui32RefValue,
+			 ui32RefValue + 1,
 			 (psKernelMemInfo) ? psKernelMemInfo->uAllocSize : 0);
 	gsRefCountCCB[giOffset].pcMesg[PVRSRV_REFCOUNT_CCB_MESG_MAX - 1] = 0;
 	giOffset = (giOffset + 1) % PVRSRV_REFCOUNT_CCB_MAX;
@@ -120,7 +142,7 @@ void PVRSRVKernelSyncInfoIncRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 	PVRSRV_UNLOCK_CCB();
 
 skip:
-	psKernelSyncInfo->ui32RefCount++;
+	PVRSRVAcquireSyncInfoKM(psKernelSyncInfo);
 }
 
 IMG_INTERNAL
@@ -128,6 +150,8 @@ void PVRSRVKernelSyncInfoDecRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 								 PVRSRV_KERNEL_SYNC_INFO *psKernelSyncInfo,
 								 PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo)
 {
+	IMG_UINT32 ui32RefValue = OSAtomicRead(psKernelSyncInfo->pvRefCount);
+
 	if(!(guiDebugMask & PVRSRV_REFCOUNT_CCB_DEBUG_SYNCINFO))
 		goto skip;
 
@@ -144,8 +168,8 @@ void PVRSRVKernelSyncInfoDecRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 			 psKernelMemInfo,
 			 (psKernelMemInfo) ? psKernelMemInfo->sMemBlk.hOSMemHandle : NULL,
 			 NULL,
-			 psKernelSyncInfo->ui32RefCount,
-			 psKernelSyncInfo->ui32RefCount - 1,
+			 ui32RefValue,
+			 ui32RefValue - 1,
 			 (psKernelMemInfo) ? psKernelMemInfo->uAllocSize : 0);
 	gsRefCountCCB[giOffset].pcMesg[PVRSRV_REFCOUNT_CCB_MESG_MAX - 1] = 0;
 	giOffset = (giOffset + 1) % PVRSRV_REFCOUNT_CCB_MAX;
@@ -153,7 +177,7 @@ void PVRSRVKernelSyncInfoDecRef2(const IMG_CHAR *pszFile, IMG_INT iLine,
 	PVRSRV_UNLOCK_CCB();
 
 skip:
-	psKernelSyncInfo->ui32RefCount--;
+	PVRSRVReleaseSyncInfoKM(psKernelSyncInfo);
 }
 
 IMG_INTERNAL
