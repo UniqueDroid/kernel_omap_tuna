@@ -2678,12 +2678,8 @@ static int ext4_writepage(struct page *page,
 		 * We don't want to do block allocation, so redirty
 		 * the page and return.  We may reach here when we do
 		 * a journal commit via journal_submit_inode_data_buffers.
-		 * We can also reach here via shrink_page_list but it
-		 * should never be for direct reclaim so warn if that
-		 * happens
+		 * We can also reach here via shrink_page_list
 		 */
-		WARN_ON_ONCE((current->flags & (PF_MEMALLOC|PF_KSWAPD)) ==
-								PF_MEMALLOC);
 		goto redirty_page;
 	}
 	if (commit_write)
@@ -3112,7 +3108,7 @@ static int ext4_nonda_switch(struct super_block *sb)
 	 * start pushing delalloc when 1/2 of free blocks are dirty.
 	 */
 	if (free_blocks < 2 * dirty_blocks)
-		writeback_inodes_sb_if_idle(sb, WB_REASON_FS_FREE_SPACE);
+		writeback_inodes_sb_if_idle(sb);
 
 	return 0;
 }
@@ -3514,17 +3510,12 @@ static ssize_t ext4_ind_direct_IO(int rw, struct kiocb *iocb,
 	}
 
 retry:
-	if (rw == READ && ext4_should_dioread_nolock(inode)) {
-		if (unlikely(!list_empty(&ei->i_completed_io_list))) {
-			mutex_lock(&inode->i_mutex);
-			ext4_flush_completed_IO(inode);
-			mutex_unlock(&inode->i_mutex);
-		}
+	if (rw == READ && ext4_should_dioread_nolock(inode))
 		ret = __blockdev_direct_IO(rw, iocb, inode,
 				 inode->i_sb->s_bdev, iov,
 				 offset, nr_segs,
 				 ext4_get_block, NULL, NULL, 0);
-	} else {
+	else {
 		ret = blockdev_direct_IO(rw, iocb, inode,
 				 inode->i_sb->s_bdev, iov,
 				 offset, nr_segs,
