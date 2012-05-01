@@ -167,4 +167,5 @@ config DEBUG_DEVRES
 config SYS_HYPERVISOR
 	bool
 	default n
+
 endmenu
