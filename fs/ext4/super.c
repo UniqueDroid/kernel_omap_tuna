@@ -1074,19 +1074,19 @@ static int ext4_show_options(struct seq_file *seq, struct vfsmount *vfs)
 	    !(def_mount_opts & EXT4_DEFM_NODELALLOC))
 		seq_puts(seq, ",nodelalloc");
 
-	//if (!test_opt(sb, MBLK_IO_SUBMIT))
-	//	seq_puts(seq, ",nomblk_io_submit");
+	if (!test_opt(sb, MBLK_IO_SUBMIT))
+		seq_puts(seq, ",nomblk_io_submit");
 	if (sbi->s_stripe)
 		seq_printf(seq, ",stripe=%lu", sbi->s_stripe);
 	/*
 	 * journal mode get enabled in different ways
 	 * So just print the value even if we didn't specify it
 	 */
-	//if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA)
-	//	seq_puts(seq, ",data=journal");
-	//else if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_ORDERED_DATA)
-	//	seq_puts(seq, ",data=ordered");
-	//else if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_WRITEBACK_DATA)
+	if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_JOURNAL_DATA)
+		seq_puts(seq, ",data=journal");
+	else if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_ORDERED_DATA)
+		seq_puts(seq, ",data=ordered");
+	else if (test_opt(sb, DATA_FLAGS) == EXT4_MOUNT_WRITEBACK_DATA)
 		seq_puts(seq, ",data=writeback");
 
 	if (sbi->s_inode_readahead_blks != EXT4_DEF_INODE_READAHEAD_BLKS)
@@ -1096,7 +1096,7 @@ static int ext4_show_options(struct seq_file *seq, struct vfsmount *vfs)
 	if (test_opt(sb, DATA_ERR_ABORT))
 		seq_puts(seq, ",data_err=abort");
 
-	//if (test_opt(sb, NO_AUTO_DA_ALLOC))
+	if (test_opt(sb, NO_AUTO_DA_ALLOC))
 		seq_puts(seq, ",noauto_da_alloc");
 
 	if (test_opt(sb, DISCARD) && !(def_mount_opts & EXT4_DEFM_DISCARD))
