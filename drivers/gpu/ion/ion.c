@@ -31,7 +31,7 @@
 #include <linux/debugfs.h>
 
 #include "ion_priv.h"
-#define DEBUG
+#undef DEBUG
 
 /**
  * struct ion_device - the metadata of the ion device node
