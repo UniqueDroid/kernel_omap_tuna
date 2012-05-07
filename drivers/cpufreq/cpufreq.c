@@ -33,7 +33,7 @@
 #include <trace/events/power.h>
 
 // Safe boot speed
-#define SafeBootSpeed 1200000
+//#define SafeBootSpeed 1200000
 
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
@@ -975,8 +975,8 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	}
 
     // Set max speed at boot to 1.2Mhz since is the safest speed to boot
-    if (policy->max > SafeBootSpeed)
-        policy->max = SafeBootSpeed;
+    //if (policy->max > SafeBootSpeed)
+      //  policy->max = SafeBootSpeed;
 
 	policy->user_policy.min = policy->min;
 	policy->user_policy.max = policy->max;
