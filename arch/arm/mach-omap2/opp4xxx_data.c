@@ -159,7 +159,7 @@ static struct omap_opp_def __initdata omap443x_opp_def_list[] = {
 #define OMAP4460_VDD_MPU_OPPNITRO_UV_1_2		1380000 //1,2ghz uv
 #define OMAP4460_VDD_MPU_OPPOC_UV_1_3			1380000 //1.3ghz uv
 #define OMAP4460_VDD_MPU_OPPOC_UV_1_3_5			1380000 //1.35ghz uv
-//#define OMAP4460_VDD_MPU_OPP_OC_PLUS_1_4		1380000 //1.4ghz oc
+//#define OMAP4460_VDD_MPU_OPP_OC_PLUS_1_4		1385000 //1.4ghz oc
 //#define OMAP4460_VDD_MPU_OPP_EXTRA_OC_1_5		1400000 //1.5ghz oc 
 
 struct omap_volt_data omap446x_vdd_mpu_volt_data[] = {
@@ -237,11 +237,11 @@ struct omap_vdd_dep_info omap446x_vddiva_dep_info[] = {
 
 static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
 	/* MPU OPP1 - OPP50 */
-	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 384000000, OMAP4460_VDD_MPU_OPP50_UV),
+	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 345600000, OMAP4460_VDD_MPU_OPP50_UV),
 	/* MPU OPP2 - OPP100 */
-	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 729600000, OMAP4460_VDD_MPU_OPP100_UV),
+	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 698880000, OMAP4460_VDD_MPU_OPP100_UV),
 	/* MPU OPP3 - OPP-Turbo */
-	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 1036800000, OMAP4460_VDD_MPU_OPPTURBO_UV),
+	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", true, 998400000, OMAP4460_VDD_MPU_OPPTURBO_UV),
 	/* MPU OPP4 - OPP-Nitro */
 	OPP_INITIALIZER("mpu", "virt_dpll_mpu_ck", "mpu", false, 1198080000, OMAP4460_VDD_MPU_OPPNITRO_UV_1_2),
 	/* MPU OPP4 - OPP-Nitro SpeedBin */
@@ -269,12 +269,13 @@ static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
 	OPP_INITIALIZER("iva", "dpll_iva_m5x2_ck", "iva", false, 430000000, OMAP4460_VDD_IVA_OPPNITRO_UV),
 	/* IVA OPP5 - OPP-Nitro SpeedBin*/
 	OPP_INITIALIZER("iva", "dpll_iva_m5x2_ck", "iva", false, 500000000, OMAP4460_VDD_IVA_OPPNITRO_UV),
+
 	/* SGX OPP1 - OPP50 */
 	OPP_INITIALIZER("gpu", "dpll_per_m7x2_ck", "core", true, 153600000, OMAP4460_VDD_CORE_OPP50_UV),
 	/* SGX OPP2 - OPP100 */
-	OPP_INITIALIZER("gpu", "dpll_per_m7x2_ck", "core", true, 384000000, OMAP4460_VDD_CORE_OPP100_UV),
+	OPP_INITIALIZER("gpu", "dpll_per_m7x2_ck", "core", true, 307200000, OMAP4460_VDD_CORE_OPP100_UV),
 	/* SGX OPP3 - OPPOV */
-	OPP_INITIALIZER("gpu", "dpll_per_m7x2_ck", "core", true, 422400000, OMAP4460_VDD_CORE_OPP100_OV_UV),
+	OPP_INITIALIZER("gpu", "dpll_per_m7x2_ck", "core", true, 384000000, OMAP4460_VDD_CORE_OPP100_OV_UV),
 	/* FDIF OPP1 - OPP25 */
 	OPP_INITIALIZER("fdif", "fdif_fck", "core", true, 32000000, OMAP4460_VDD_CORE_OPP50_UV),
 	/* FDIF OPP2 - OPP50 */
@@ -290,7 +291,7 @@ static struct omap_opp_def __initdata omap446x_opp_def_list[] = {
 	/* HSI OPP1 - OPP50 */
 	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 96000000, OMAP4460_VDD_CORE_OPP50_UV),
 	/* HSI OPP2 - OPP100 */
-	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 192000000, OMAP4460_VDD_CORE_OPP100_UV),
+	OPP_INITIALIZER("hsi", "hsi_fck", "core", true, 96000000, OMAP4460_VDD_CORE_OPP100_UV),
 	/* ABE OPP1 - OPP50 */
 	OPP_INITIALIZER("aess", "abe_clk", "iva", true, 98304000, OMAP4460_VDD_IVA_OPP50_UV),
 	/* ABE OPP2 - OPP100 */
